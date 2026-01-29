@@ -80,12 +80,23 @@ function App() {
   const [history, setHistory] = useState([]);
   const [copyFeedbackVisible, setCopyFeedbackVisible] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isStandalone, setIsStandalone] = useState(false);
 
   const displayCardRef = useRef(null);
 
   useEffect(() => {
     // Initialize DB
     initDB(setHistory);
+
+    // Check if standalone
+    const checkStandalone = () => {
+      const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches ||
+        window.navigator.standalone === true;
+      setIsStandalone(isStandaloneMode);
+    };
+
+    checkStandalone();
+    window.matchMedia('(display-mode: standalone)').addEventListener('change', checkStandalone);
 
     // Capture install prompt
     const handleBeforeInstallPrompt = (e) => {
@@ -103,11 +114,15 @@ function App() {
     return () => {
       clearTimeout(timer);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.matchMedia('(display-mode: standalone)').removeEventListener('change', checkStandalone);
     };
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      alert("To install this app:\n\n1. Tap the Share button (iOS) or Menu (Android/Desktop)\n2. Select 'Add to Home Screen' or 'Install App'");
+      return;
+    }
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === 'accepted') {
@@ -196,7 +211,7 @@ function App() {
             <h1>SecurePass</h1>
           </div>
           <p>Generate secure, random passwords instantly.</p>
-          {deferredPrompt && (
+          {!isStandalone && (
             <button className="install-btn" onClick={handleInstallClick}>
               Install App
             </button>
