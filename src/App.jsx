@@ -79,20 +79,41 @@ function App() {
   });
   const [history, setHistory] = useState([]);
   const [copyFeedbackVisible, setCopyFeedbackVisible] = useState(false);
-  
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+
   const displayCardRef = useRef(null);
 
   useEffect(() => {
     // Initialize DB
     initDB(setHistory);
-    
+
+    // Capture install prompt
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
     // Generate one on start
     const timer = setTimeout(() => {
-        generatePassword();
+      generatePassword();
     }, 500);
-    
-    return () => clearTimeout(timer);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
   }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
 
   const generatePassword = () => {
     let chars = "";
@@ -111,7 +132,7 @@ function App() {
     window.crypto.getRandomValues(randomValues);
 
     for (let i = 0; i < length; i++) {
-        generatedPassword += chars[randomValues[i] % chars.length];
+      generatedPassword += chars[randomValues[i] % chars.length];
     }
 
     setPassword(generatedPassword);
@@ -124,10 +145,10 @@ function App() {
 
     // Visual Feedback (Shake)
     if (displayCardRef.current) {
-        const card = displayCardRef.current;
-        card.classList.remove('shake-animation');
-        void card.offsetWidth; // Trigger reflow
-        card.classList.add('shake-animation');
+      const card = displayCardRef.current;
+      card.classList.remove('shake-animation');
+      void card.offsetWidth; // Trigger reflow
+      card.classList.add('shake-animation');
     }
   };
 
@@ -167,7 +188,7 @@ function App() {
   return (
     <>
       <div className="background-mesh"></div>
-      
+
       <main className="container">
         <header>
           <div className="logo-container">
@@ -175,16 +196,21 @@ function App() {
             <h1>SecurePass</h1>
           </div>
           <p>Generate secure, random passwords instantly.</p>
+          {deferredPrompt && (
+            <button className="install-btn" onClick={handleInstallClick}>
+              Install App
+            </button>
+          )}
         </header>
 
         <section className="card display-card" ref={displayCardRef}>
           <div className="password-display-container">
-            <input 
-                type="text" 
-                className="password-input" 
-                value={password} 
-                placeholder="Your password here" 
-                readOnly 
+            <input
+              type="text"
+              className="password-input"
+              value={password}
+              placeholder="Your password here"
+              readOnly
             />
             <button id="copyBtn" aria-label="Copy Password" onClick={() => copyToClipboard(password)}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -202,53 +228,53 @@ function App() {
               <label htmlFor="lengthRange">Length</label>
               <span id="lengthValue">{length}</span>
             </div>
-            <input 
-                type="range" 
-                id="lengthRange" 
-                min="6" 
-                max="64" 
-                value={length} 
-                onChange={(e) => setLength(parseInt(e.target.value))} 
+            <input
+              type="range"
+              id="lengthRange"
+              min="6"
+              max="64"
+              value={length}
+              onChange={(e) => setLength(parseInt(e.target.value))}
             />
           </div>
 
           <div className="options-grid">
             <label className="checkbox-container">
-              <input 
-                type="checkbox" 
-                id="uppercase" 
-                checked={options.uppercase} 
-                onChange={handleOptionChange} 
+              <input
+                type="checkbox"
+                id="uppercase"
+                checked={options.uppercase}
+                onChange={handleOptionChange}
               />
               <span className="checkmark"></span>
               Uppercase (A-Z)
             </label>
             <label className="checkbox-container">
-              <input 
-                type="checkbox" 
-                id="lowercase" 
-                checked={options.lowercase} 
-                onChange={handleOptionChange} 
+              <input
+                type="checkbox"
+                id="lowercase"
+                checked={options.lowercase}
+                onChange={handleOptionChange}
               />
               <span className="checkmark"></span>
               Lowercase (a-z)
             </label>
             <label className="checkbox-container">
-              <input 
-                type="checkbox" 
-                id="numbers" 
-                checked={options.numbers} 
-                onChange={handleOptionChange} 
+              <input
+                type="checkbox"
+                id="numbers"
+                checked={options.numbers}
+                onChange={handleOptionChange}
               />
               <span className="checkmark"></span>
               Numbers (0-9)
             </label>
             <label className="checkbox-container">
-              <input 
-                type="checkbox" 
-                id="symbols" 
-                checked={options.symbols} 
-                onChange={handleOptionChange} 
+              <input
+                type="checkbox"
+                id="symbols"
+                checked={options.symbols}
+                onChange={handleOptionChange}
               />
               <span className="checkmark"></span>
               Symbols (!@#$)
@@ -265,19 +291,19 @@ function App() {
           </div>
           <ul id="historyList" className="history-list">
             {history.length === 0 ? (
-                <li className="empty-state">No history yet</li>
+              <li className="empty-state">No history yet</li>
             ) : (
-                history.map((item, index) => (
-                    <li key={item.id || index} className="history-item">
-                        <span>{item.password}</span>
-                        <button className="copy-mini-btn" onClick={() => copyToClipboard(item.password)}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                            </svg>
-                        </button>
-                    </li>
-                ))
+              history.map((item, index) => (
+                <li key={item.id || index} className="history-item">
+                  <span>{item.password}</span>
+                  <button className="copy-mini-btn" onClick={() => copyToClipboard(item.password)}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                  </button>
+                </li>
+              ))
             )}
           </ul>
         </section>
